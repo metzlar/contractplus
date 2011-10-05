@@ -8,7 +8,7 @@ if 'register' in sys.argv or 'upload' in sys.argv:
     raise Exception('I don\'t want to be on PyPI!')
 
 setup(
-    name='contract',
+    name='contrac-plus',
     description='contract forked from https://github.com/barbuza/contract',
     license='none',
     version='1.0',
