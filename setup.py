@@ -14,5 +14,5 @@ setup(
     version='1.0',
     author='barbuza',
     author_email='',
-    packages=['contract.py'],
+    py_modules=['contract'],
     )
