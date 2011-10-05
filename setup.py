@@ -2,7 +2,7 @@
 
 import sys
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 if 'register' in sys.argv or 'upload' in sys.argv:
     raise Exception('I don\'t want to be on PyPI!')
@@ -14,6 +14,5 @@ setup(
     version='1.0',
     author='barbuza',
     author_email='',
-    packages=find_packages(),
-    include_package_data=True,
+    packages=['contract.py'],
     )
