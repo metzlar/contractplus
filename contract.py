@@ -3,6 +3,7 @@
 import functools
 import inspect
 import re
+import dateutil.parser
 
 """
 Contract is tiny library for data validation
@@ -115,7 +116,7 @@ class TypeC(Contract):
             self._failure("value is not %s" % self.type_.__name__)
 
     def __repr__(self):
-        return "<TypeC(%s)>" % self.type_.__name__
+        return "<type(%s)>" % self.type_.__name__
 
 
 class AnyC(Contract):
@@ -130,7 +131,7 @@ class AnyC(Contract):
         pass
 
     def __repr__(self):
-        return "<AnyC>"
+        return "<any>"
 
 
 class OrCMeta(ContractMeta):
@@ -184,7 +185,7 @@ class OrC(Contract):
         return self
 
     def __repr__(self):
-        return "<OrC(%s)>" % (", ".join(map(repr, self.contracts)))
+        return "either (%s)" % (", ".join(map(repr, self.contracts)))
 
 
 class NullC(Contract):
@@ -204,7 +205,7 @@ class NullC(Contract):
             self._failure("value should be None")
 
     def __repr__(self):
-        return "<NullC>"
+        return "None"
 
 
 class BoolC(Contract):
@@ -225,7 +226,7 @@ class BoolC(Contract):
             self._failure("value should be True or False")
 
     def __repr__(self):
-        return "<BoolC>"
+        return "<bool>"
 
 
 class NumberCMeta(ContractMeta):
@@ -324,8 +325,11 @@ class FloatC(Contract):
     def __gt__(self, gt):
         return type(self)(gte=self.gte, lte=self.lte, gt=gt, lt=self.lt)
 
+    def __reprname__(self):
+        return type(self).__name__.lower()[:-1]
+
     def __repr__(self):
-        r = "<%s" % type(self).__name__
+        r = "<%s" % self.__reprname__()
         options = []
         for param in ("gte", "lte", "gt", "lt"):
             if getattr(self, param) is not None:
@@ -380,7 +384,7 @@ class StringC(Contract):
             self._failure("blank value is not allowed")
 
     def __repr__(self):
-        return "<StringC(blank)>" if self.allow_blank else "<StringC>"
+        return "<str(blank)>" if self.allow_blank else "<str>"
 
 
 class EmailC(Contract):
@@ -415,7 +419,22 @@ class EmailC(Contract):
         self._failure('value is not email')
 
     def __repr__(self):
-        return "<EmailC>"
+        return "<str(email)>"
+
+class IsoDateC(Contract):
+    def _rant(self, value):
+        self._failure("value is not an iso formatted date: "+value)
+
+    def check(self, value):
+        if not value:
+            self._rant(value)
+        try:
+            dateutil.parser.parse(value)
+        except:
+            self._rant(value)
+
+    def __repr__(self):
+        return "<str(isodate)>"
 
 
 class SquareBracketsMeta(ContractMeta):
@@ -507,7 +526,7 @@ class ListC(Contract):
                 raise ContractValidationError(err.msg, name)
 
     def __repr__(self):
-        r = "<ListC("
+        r = "[("
         options = []
         if self.min_length:
             options.append("min_length=%s" % self.min_length)
@@ -515,9 +534,9 @@ class ListC(Contract):
             options.append("max_length=%s" % self.max_length)
         r += ", ".join(options)
         if options:
-            r += " | "
+            r += " :- "
         r += repr(self.contract)
-        r += ")>"
+        r += ")]"
         return r
 
 
@@ -614,7 +633,7 @@ class DictC(Contract):
             self._failure("%s is not allowed key" % key)
 
     def __repr__(self):
-        r = "<DictC("
+        r = "{("
         options = []
         if self.allow_any:
             options.append("any")
@@ -624,12 +643,12 @@ class DictC(Contract):
             options.append("optionals=(%s)" % (", ".join(self.optionals)))
         r += ", ".join(options)
         if options:
-            r += " | "
+            r += " :- "
         options = []
         for key in sorted(self.contracts.keys()):
             options.append("%s=%r" % (key, self.contracts[key]))
         r += ", ".join(options)
-        r += ")>"
+        r += ")}"
         return r
 
 
@@ -667,7 +686,7 @@ class MappingC(Contract):
                 raise ContractValidationError(err.msg, "(value for key %r)" % key)
 
     def __repr__(self):
-        return "<MappingC(%r => %r)>" % (self.keyC, self.valueC)
+        return "<%r => %r>" % (self.keyC, self.valueC)
 
 
 class EnumC(Contract):
@@ -692,7 +711,7 @@ class EnumC(Contract):
             self._failure("value doesn't match any variant")
 
     def __repr__(self):
-        return "<EnumC(%s)>" % (", ".join(map(repr, self.variants)))
+        return "one of (%s)" % (", ".join(map(repr, self.variants)))
 
 
 class CallableC(Contract):
@@ -710,7 +729,7 @@ class CallableC(Contract):
             self._failure("value is not callable")
 
     def __repr__(self):
-        return "<CallableC>"
+        return "<callable>"
 
 
 class CallC(Contract):
@@ -745,7 +764,7 @@ class CallC(Contract):
             self._failure(error)
 
     def __repr__(self):
-        return "<CallC(%s)>" % self.fn.__name__
+        return "<validator %s>" % self.fn.__name__
 
 
 class ForwardC(Contract):
@@ -874,31 +893,37 @@ def guard(contract=None, **kwargs):
 
         # iter over the characters building a list of params
         brackets_open = 0
-        current_token = " - "
+        current_token = "|        "
         params = []
 
         for ch in doc_contract:
 
-            if not (current_token.strip() == "" and ch == " "):
+            if not (current_token.strip('| ') == "" and ch == " "):
                 current_token += ch
 
             if ch == '(' or ch == ',':
                 if brackets_open == 0 and '=' in current_token:
-                    current_token = " - " + current_token[3:]
+                    current_token = "|    " + current_token[8:]
+                    current_token = current_token.replace("=", ":\n|        ")
 
                 params.append(current_token)
 
                 if ch == '(':
                     brackets_open += 1
 
-                current_token = "   " * (brackets_open+1)
+                current_token = '|' + ("    " * (brackets_open+2))
 
             if ch == ')':
                 brackets_open -= 1
 
+        if '=' in current_token:
+            current_token = "|    " + current_token[8:]
+            current_token = current_token.replace("=", ":\n|        ")
+        params.append(current_token)
+
         doc_contract = "\n".join(params)
 
-        decor.__doc__ = "guarded with \n%s\n\n" % doc_contract + (decor.__doc__ or "")
+        decor.__doc__ = "Guarded with::\n\n%s\n" % doc_contract + (decor.__doc__ or "")
         return decor
     return wrapper
 
@@ -913,7 +938,7 @@ class NumberC(StringC):
             self._failure("value is not a number")
 
     def __repr__(self):
-        return '<NumberC>'
+        return '<digits>'
 
 
 if __name__ == "__main__":
