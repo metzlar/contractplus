@@ -865,7 +865,40 @@ def guard(contract=None, **kwargs):
             except ContractValidationError as err:
                 raise GuardValidationError(unicode(err))
             return fn(*args, **kwargs)
-        decor.__doc__ = "guarded with %r\n\n" % contract + (decor.__doc__ or "")
+
+        doc_contract = repr(contract)
+
+        # find the first '(' and last ')' and strip anything around it
+        doc_contract = doc_contract[doc_contract.index("(")+1:]
+        doc_contract = doc_contract[:-1 - doc_contract[::-1].index(")")]
+
+        # iter over the characters building a list of params
+        brackets_open = 0
+        current_token = " - "
+        params = []
+
+        for ch in doc_contract:
+
+            if not (current_token.strip() == "" and ch == " "):
+                current_token += ch
+
+            if ch == '(' or ch == ',':
+                if brackets_open == 0 and '=' in current_token:
+                    current_token = " - " + current_token[3:]
+
+                params.append(current_token)
+
+                if ch == '(':
+                    brackets_open += 1
+
+                current_token = "   " * (brackets_open+1)
+
+            if ch == ')':
+                brackets_open -= 1
+
+        doc_contract = "\n".join(params)
+
+        decor.__doc__ = "guarded with \n%s\n\n" % doc_contract + (decor.__doc__ or "")
         return decor
     return wrapper
 
