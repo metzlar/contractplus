@@ -3,7 +3,7 @@
 import functools
 import inspect
 import re
-import dateutil.parser
+import datetime
 
 """
 Contract is tiny library for data validation
@@ -423,13 +423,13 @@ class EmailC(Contract):
 
 class IsoDateC(Contract):
     def _rant(self, value):
-        self._failure("value is not an iso formatted date: "+value)
+        self._failure("value is not an iso formatted (yyyy-mm-dd) date: "+value)
 
     def check(self, value):
         if not value:
             self._rant(value)
         try:
-            dateutil.parser.parse(value)
+            datetime.datetime(*[int(v) for v in value.split("-")])
         except:
             self._rant(value)
 
