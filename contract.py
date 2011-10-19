@@ -423,7 +423,7 @@ class EmailC(Contract):
 
 class IsoDateC(Contract):
     def _rant(self, value):
-        self._failure("value is not an iso formatted (yyyy-mm-dd) date: "+value)
+        self._failure("value is not an iso formatted (yyyy-mm-dd) date: %r" % value)
 
     def check(self, value):
         if not value:
