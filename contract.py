@@ -893,7 +893,8 @@ def guard(contract=None, **kwargs):
         doc_contract = doc_contract[garbage_index:-garbage_index]
         guarded_with = get_array_from_contract(doc_contract)
 
-        old_documentation = re.sub('^( ){8}', '', decor.__doc__, flags=re.M)
+        pattern = re.compile('^( ){8}', flags=re.MULTILINE)
+        old_documentation = pattern.sub('', decor.__doc__)
         decor.__doc__ = "Guarded with:\n\n"
         for param in guarded_with:
             decor.__doc__ += '- ``%s``: %s\n' % (param, guarded_with[param])
