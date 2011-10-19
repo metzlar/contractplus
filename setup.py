@@ -11,7 +11,7 @@ setup(
     name='contractplus',
     description='contract forked from https://github.com/barbuza/contract',
     license='none',
-    version='1.1.1',
+    version='1.2',
     author='barbuza',
     author_email='',
     py_modules=['contract'],
