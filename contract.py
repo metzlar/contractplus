@@ -131,7 +131,7 @@ class AnyC(Contract):
         pass
 
     def __repr__(self):
-        return "<any>"
+        return "Any"
 
 
 class OrCMeta(ContractMeta):
@@ -185,7 +185,8 @@ class OrC(Contract):
         return self
 
     def __repr__(self):
-        return "either (%s)" % (", ".join(map(repr, self.contracts)))
+        #return "\n\n\t- %s\n" % ("\n\t- ".join(map(repr, self.contracts)))
+        return "%s" % (" or ".join(map(repr, self.contracts)))
 
 
 class NullC(Contract):
@@ -205,7 +206,7 @@ class NullC(Contract):
             self._failure("value should be None")
 
     def __repr__(self):
-        return "None"
+        return "Empty"
 
 
 class BoolC(Contract):
@@ -226,7 +227,7 @@ class BoolC(Contract):
             self._failure("value should be True or False")
 
     def __repr__(self):
-        return "<bool>"
+        return "Boolean"
 
 
 class NumberCMeta(ContractMeta):
@@ -384,7 +385,7 @@ class StringC(Contract):
             self._failure("blank value is not allowed")
 
     def __repr__(self):
-        return "<str(blank)>" if self.allow_blank else "<str>"
+        return "String (could be blank)" if self.allow_blank else "String"
 
 
 class EmailC(Contract):
@@ -419,7 +420,7 @@ class EmailC(Contract):
         self._failure('value is not email')
 
     def __repr__(self):
-        return "<str(email)>"
+        return "String with email format"
 
 class IsoDateC(Contract):
     def _rant(self, value):
@@ -434,7 +435,7 @@ class IsoDateC(Contract):
             self._rant(value)
 
     def __repr__(self):
-        return "<str(isodate)>"
+        return "ISODate YYYY-MM-DD"
 
 
 class SquareBracketsMeta(ContractMeta):
@@ -526,17 +527,8 @@ class ListC(Contract):
                 raise ContractValidationError(err.msg, name)
 
     def __repr__(self):
-        r = "[("
-        options = []
-        if self.min_length:
-            options.append("min_length=%s" % self.min_length)
-        if self.max_length:
-            options.append("max_length=%s" % self.max_length)
-        r += ", ".join(options)
-        if options:
-            r += " :- "
-        r += repr(self.contract)
-        r += ")]"
+        r = "%s with minimal length of %s and maximum length %s\n" % (
+                self.contract, self.min_length, self.max_length)
         return r
 
 
@@ -711,7 +703,7 @@ class EnumC(Contract):
             self._failure("value doesn't match any variant")
 
     def __repr__(self):
-        return "one of (%s)" % (", ".join(map(repr, self.variants)))
+        return "%s" % (" or ".join(map(repr, self.variants)))
 
 
 class CallableC(Contract):
@@ -816,6 +808,15 @@ class GuardValidationError(ContractValidationError):
     pass
 
 
+def get_array_from_contract(doc_contract):
+    contracts = {}
+    for attribute in doc_contract.split(','):
+        (key, value) = attribute.split('=')
+        key = key.strip()
+        contracts.update({key: value})
+    return contracts
+
+
 def guard(contract=None, **kwargs):
     """
     Decorator for protecting function with contracts
@@ -877,7 +878,7 @@ def guard(contract=None, **kwargs):
             try:
                 call_args = dict(zip(fnargs, checkargs) + kwargs.items())
                 for name, default in zip(reversed(fnargs),
-                                         argspec.defaults or ()):
+                                          argspec.defaults or ()):
                     if name not in call_args:
                         call_args[name] = default
                 contract.check(call_args)
@@ -887,43 +888,17 @@ def guard(contract=None, **kwargs):
 
         doc_contract = repr(contract)
 
-        # find the first '(' and last ')' and strip anything around it
-        doc_contract = doc_contract[doc_contract.index("(")+1:]
-        doc_contract = doc_contract[:-1 - doc_contract[::-1].index(")")]
+        # find the first ( and strip anything around it
+        garbage_index = doc_contract.index("(") + 1
+        doc_contract = doc_contract[garbage_index:-garbage_index]
+        guarded_with = get_array_from_contract(doc_contract)
 
-        # iter over the characters building a list of params
-        brackets_open = 0
-        current_token = "|        "
-        params = []
+        old_documentation = re.sub('^( ){8}', '', decor.__doc__, flags=re.M)
+        decor.__doc__ = "Guarded with:\n\n"
+        for param in guarded_with:
+            decor.__doc__ += '- ``%s``: %s\n' % (param, guarded_with[param])
+        decor.__doc__ += old_documentation
 
-        for ch in doc_contract:
-
-            if not (current_token.strip('| ') == "" and ch == " "):
-                current_token += ch
-
-            if ch == '(' or ch == ',':
-                if brackets_open == 0 and '=' in current_token:
-                    current_token = "|    " + current_token[8:]
-                    current_token = current_token.replace("=", ":\n|        ")
-
-                params.append(current_token)
-
-                if ch == '(':
-                    brackets_open += 1
-
-                current_token = '|' + ("    " * (brackets_open+2))
-
-            if ch == ')':
-                brackets_open -= 1
-
-        if '=' in current_token:
-            current_token = "|    " + current_token[8:]
-            current_token = current_token.replace("=", ":\n|        ")
-        params.append(current_token)
-
-        doc_contract = "\n".join(params)
-
-        decor.__doc__ = "Guarded with::\n\n%s\n" % doc_contract + (decor.__doc__ or "")
         return decor
     return wrapper
 
@@ -938,7 +913,7 @@ class NumberC(StringC):
             self._failure("value is not a number")
 
     def __repr__(self):
-        return '<digits>'
+        return 'Digits'
 
 
 if __name__ == "__main__":
