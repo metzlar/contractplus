@@ -206,7 +206,7 @@ class NullC(Contract):
             self._failure("value should be None")
 
     def __repr__(self):
-        return "Empty"
+        return "Null"
 
 
 class BoolC(Contract):
