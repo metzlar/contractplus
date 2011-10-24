@@ -424,7 +424,7 @@ class EmailC(Contract):
 
 class IsoDateC(Contract):
     def _rant(self, value):
-        self._failure("value is not an iso formatted (yyyy-mm-dd) date: %r" % value)
+        self._failure("value is not an iso formatted date: %r" % value)
 
     def check(self, value):
         if not value:
@@ -435,7 +435,7 @@ class IsoDateC(Contract):
             self._rant(value)
 
     def __repr__(self):
-        return "ISODate YYYY-MM-DD"
+        return "ISO formatted date"
 
 
 class SquareBracketsMeta(ContractMeta):
