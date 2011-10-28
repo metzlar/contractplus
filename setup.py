@@ -15,4 +15,5 @@ setup(
     author='barbuza',
     author_email='',
     py_modules=['contract'],
+    install_requires=['python-dateutil>=1.5.0,<2.0.0'],
     )

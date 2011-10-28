@@ -4,6 +4,7 @@ import functools
 import inspect
 import re
 import datetime
+from dateutil.parser import parse as dateutil_parse
 
 """
 Contract is tiny library for data validation
@@ -430,7 +431,7 @@ class IsoDateC(Contract):
         if not value:
             self._rant(value)
         try:
-            datetime.datetime(*[int(v) for v in value.split("-")])
+            dateutil_parse(value)
         except:
             self._rant(value)
 
