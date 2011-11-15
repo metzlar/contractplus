@@ -3,7 +3,6 @@
 import functools
 import inspect
 import re
-import datetime
 from dateutil.parser import parse as dateutil_parse
 
 """
@@ -38,9 +37,9 @@ class ContractMeta(type):
     on instances but on classes
 
     >>> IntC | StringC
-    <OrC(<IntC>, <StringC>)>
+    Integer or String
     >>> IntC | StringC | NullC
-    <OrC(<IntC>, <StringC>, <NullC>)>
+    Integer or String or Null
     """
 
     def __or__(cls, other):
@@ -88,14 +87,21 @@ class Contract(object):
     def __or__(self, other):
         return OrC(self, other)
 
+    def get_full_condition_name(self, condition):
+        conditions = {"gt": "greater than",
+                      "lt": "less than",
+                      "gte": "greater or equal than",
+                      "lte": "less or equal than"}
+        return conditions.get(condition)
+
 
 class TypeC(Contract):
 
     """
     >>> TypeC(int)
-    <TypeC(int)>
+    <type(int)>
     >>> TypeC[int]
-    <TypeC(int)>
+    <type(int)>
     >>> c = TypeC[int]
     >>> c.check(1)
     >>> c.check("foo")
@@ -124,7 +130,7 @@ class AnyC(Contract):
 
     """
     >>> AnyC()
-    <AnyC>
+    Any
     >>> AnyC().check(object())
     """
 
@@ -141,7 +147,7 @@ class OrCMeta(ContractMeta):
     Allows to use "<<" operator on OrC class
 
     >>> OrC << IntC << StringC
-    <OrC(<IntC>, <StringC>)>
+    Integer or String
     """
 
     def __lshift__(cls, other):
@@ -153,7 +159,7 @@ class OrC(Contract):
     """
     >>> nullString = OrC(StringC, NullC)
     >>> nullString
-    <OrC(<StringC>, <NullC>)>
+    String or Null
     >>> nullString.check(None)
     >>> nullString.check("test")
     >>> nullString.check(1)
@@ -194,7 +200,7 @@ class NullC(Contract):
 
     """
     >>> NullC()
-    <NullC>
+    Null
     >>> NullC().check(None)
     >>> NullC().check(1)
     Traceback (most recent call last):
@@ -214,7 +220,7 @@ class BoolC(Contract):
 
     """
     >>> BoolC()
-    <BoolC>
+    Boolean
     >>> BoolC().check(True)
     >>> BoolC().check(False)
     >>> BoolC().check(1)
@@ -238,17 +244,17 @@ class NumberCMeta(ContractMeta):
     number contracts
 
     >>> IntC[1:]
-    <IntC(gte=1)>
+    Integer (greater or equal than 1)
     >>> IntC[1:10]
-    <IntC(gte=1, lte=10)>
+    Integer (greater or equal than 1, less or equal than 10)
     >>> IntC[:10]
-    <IntC(lte=10)>
+    Integer (less or equal than 10)
     >>> FloatC[1:]
-    <FloatC(gte=1)>
+    Float (greater or equal than 1)
     >>> IntC > 3
-    <IntC(gt=3)>
+    Integer (greater than 3)
     >>> 1 < (FloatC < 10)
-    <FloatC(gt=1, lt=10)>
+    Float (greater than 1, less than 10)
     >>> (IntC > 5).check(10)
     >>> (IntC > 5).check(1)
     Traceback (most recent call last):
@@ -275,13 +281,13 @@ class FloatC(Contract):
 
     """
     >>> FloatC()
-    <FloatC>
+    Float
     >>> FloatC(gte=1)
-    <FloatC(gte=1)>
+    Float (greater or equal than 1)
     >>> FloatC(lte=10)
-    <FloatC(lte=10)>
+    Float (less or equal than 10)
     >>> FloatC(gte=1, lte=10)
-    <FloatC(gte=1, lte=10)>
+    Float (greater or equal than 1, less or equal than 10)
     >>> FloatC().check(1.0)
     >>> FloatC().check(1)
     Traceback (most recent call last):
@@ -331,14 +337,17 @@ class FloatC(Contract):
         return type(self).__name__.lower()[:-1]
 
     def __repr__(self):
-        r = "<%s" % self.__reprname__()
+        if type(self) is IntC:
+            r = "Integer"
+        else:
+            r = "Float"
         options = []
         for param in ("gte", "lte", "gt", "lt"):
             if getattr(self, param) is not None:
-                options.append("%s=%s" % (param, getattr(self, param)))
+                condition = self.get_full_condition_name(param)
+                options.append("%s %s" % (condition, getattr(self, param)))
         if options:
-            r += "(%s)" % (", ".join(options))
-        r += ">"
+            r += " (%s)" % (", ".join(options))
         return r
 
 
@@ -346,7 +355,7 @@ class IntC(FloatC):
 
     """
     >>> IntC()
-    <IntC>
+    Integer
     >>> IntC().check(5)
     >>> IntC().check(1.1)
     Traceback (most recent call last):
@@ -361,9 +370,9 @@ class StringC(Contract):
 
     """
     >>> StringC()
-    <StringC>
+    String
     >>> StringC(allow_blank=True)
-    <StringC(blank)>
+    String (could be blank)
     >>> StringC().check("foo")
     >>> StringC().check("")
     Traceback (most recent call last):
@@ -445,11 +454,11 @@ class SquareBracketsMeta(ContractMeta):
     Allows usage of square brackets for ListC initialization
 
     >>> ListC[IntC]
-    <ListC(<IntC>)>
+    List of Integer
     >>> ListC[IntC, 1:]
-    <ListC(min_length=1 | <IntC>)>
+    List of Integer (minimum length of 1)
     >>> ListC[:10, IntC]
-    <ListC(max_length=10 | <IntC>)>
+    List of Integer (maximum length of 10)
     >>> ListC[1:10]
     Traceback (most recent call last):
     ...
@@ -479,11 +488,11 @@ class ListC(Contract):
 
     """
     >>> ListC(IntC)
-    <ListC(<IntC>)>
+    List of Integer
     >>> ListC(IntC, min_length=1)
-    <ListC(min_length=1 | <IntC>)>
+    List of Integer (minimum length of 1)
     >>> ListC(IntC, min_length=1, max_length=10)
-    <ListC(min_length=1, max_length=10 | <IntC>)>
+    List of Integer (minimum length of 1, maximum length of 10)
     >>> ListC(IntC).check(1)
     Traceback (most recent call last):
     ...
@@ -528,8 +537,14 @@ class ListC(Contract):
                 raise ContractValidationError(err.msg, name)
 
     def __repr__(self):
-        r = "%s with minimal length of %s and maximum length %s\n" % (
-                self.contract, self.min_length, self.max_length)
+        r = "List of %s" % self.contract
+        options = []
+        if self.min_length:
+            options.append("minimum length of %s" % self.min_length)
+        if self.max_length:
+            options.append("maximum length of %s" % self.max_length)
+        if options:
+            r = "%s (%s)" % (r, ', '.join(options))
         return r
 
 
@@ -551,7 +566,7 @@ class DictC(Contract):
     ...
     ContractValidationError: eggs is not allowed key
     >>> contract.allow_extra("eggs")
-    <DictC(extras=(eggs) | bar=<StringC>, foo=<IntC>)>
+    <DictC(extras=(eggs) | bar=String, foo=Integer)>
     >>> contract.check({"foo": 1, "bar": "spam", "eggs": None})
     >>> contract.check({"foo": 1, "bar": "spam"})
     >>> contract.check({"foo": 1, "bar": "spam", "ham": 100})
@@ -559,7 +574,7 @@ class DictC(Contract):
     ...
     ContractValidationError: ham is not allowed key
     >>> contract.allow_extra("*")
-    <DictC(any, extras=(eggs) | bar=<StringC>, foo=<IntC>)>
+    <DictC(any, extras=(eggs) | bar=String, foo=Integer)>
     >>> contract.check({"foo": 1, "bar": "spam", "ham": 100})
     >>> contract.check({"foo": 1, "bar": "spam", "ham": 100, "baz": None})
     >>> contract.check({"foo": 1, "ham": 100, "baz": None})
@@ -567,7 +582,7 @@ class DictC(Contract):
     ...
     ContractValidationError: bar is required
     >>> contract.allow_optionals("bar")
-    <DictC(any, extras=(eggs), optionals=(bar) | bar=<StringC>, foo=<IntC>)>
+    <DictC(any, extras=(eggs), optionals=(bar) | bar=String, foo=Integer)>
     >>> contract.check({"foo": 1, "ham": 100, "baz": None})
     >>> contract.check({"bar": 1, "ham": 100, "baz": None})
     Traceback (most recent call last):
@@ -626,7 +641,7 @@ class DictC(Contract):
             self._failure("%s is not allowed key" % key)
 
     def __repr__(self):
-        r = "{("
+        r = "<DictC("
         options = []
         if self.allow_any:
             options.append("any")
@@ -636,12 +651,12 @@ class DictC(Contract):
             options.append("optionals=(%s)" % (", ".join(self.optionals)))
         r += ", ".join(options)
         if options:
-            r += " :- "
+            r += " | "
         options = []
         for key in sorted(self.contracts.keys()):
             options.append("%s=%r" % (key, self.contracts[key]))
         r += ", ".join(options)
-        r += ")}"
+        r += ")>"
         return r
 
 
@@ -650,7 +665,7 @@ class MappingC(Contract):
     """
     >>> contract = MappingC(StringC, IntC)
     >>> contract
-    <MappingC(<StringC> => <IntC>)>
+    <String => Integer>
     >>> contract.check({"foo": 1, "bar": 2})
     >>> contract.check({"foo": 1, "bar": None})
     Traceback (most recent call last):
@@ -687,7 +702,7 @@ class EnumC(Contract):
     """
     >>> contract = EnumC("foo", "bar", 1)
     >>> contract
-    <EnumC('foo', 'bar', 1)>
+    'foo' or 'bar' or 1
     >>> contract.check("foo")
     >>> contract.check(1)
     >>> contract.check(2)
@@ -757,7 +772,7 @@ class CallC(Contract):
             self._failure(error)
 
     def __repr__(self):
-        return "<validator %s>" % self.fn.__name__
+        return "<CallC(%s)>" % self.fn.__name__
 
 
 class ForwardC(Contract):
@@ -766,7 +781,7 @@ class ForwardC(Contract):
     >>> nodeC = ForwardC()
     >>> nodeC << DictC(name=StringC, children=ListC[nodeC])
     >>> nodeC
-    <ForwardC(<DictC(children=<ListC(<recur>)>, name=<StringC>)>)>
+    <ForwardC(<DictC(children=List of <recur>, name=String)>)>
     >>> nodeC.check({"name": "foo", "children": []})
     >>> nodeC.check({"name": "foo", "children": [1]})
     Traceback (most recent call last):
@@ -832,8 +847,11 @@ def guard(contract=None, **kwargs):
     Help on function fn:
     <BLANKLINE>
     fn(*args, **kwargs)
-        guarded with <DictC(a=<StringC>, b=<IntC>, c=<StringC>)>
+        Guarded with:
     <BLANKLINE>
+        - ``a``: String
+        - ``c``: String
+        - ``b``: Integer
         docstring
     <BLANKLINE>
     >>> fn("foo", 1)
@@ -890,8 +908,9 @@ def guard(contract=None, **kwargs):
         doc_contract = repr(contract)
 
         # find the first ( and strip anything around it
-        garbage_index = doc_contract.index("(") + 1
-        doc_contract = doc_contract[garbage_index:-garbage_index]
+        min_garbage_index = doc_contract.index("(") + 1
+        max_garbage_index = doc_contract.index(")")
+        doc_contract = doc_contract[min_garbage_index:max_garbage_index]
         guarded_with = get_array_from_contract(doc_contract)
 
         try:
