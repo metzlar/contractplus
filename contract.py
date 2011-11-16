@@ -424,7 +424,7 @@ class EmailC(Contract):
         pass
 
     def check(self, value):
-        if not value or type(value) is not str:
+        if not value or not isinstance(value, basestring):
             self._failure("value is not email")
         if self.email_re.search(value):
             return
