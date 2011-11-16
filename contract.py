@@ -863,6 +863,7 @@ def guard(contract=None, **kwargs):
         - ``a``: String
         - ``c``: String
         - ``b``: Integer
+    <BLANKLINE>
         docstring
     <BLANKLINE>
     >>> fn("foo", 1)
@@ -932,6 +933,8 @@ def guard(contract=None, **kwargs):
         decor.__doc__ = "Guarded with:\n\n"
         for param in guarded_with:
             decor.__doc__ += '- ``%s``: %s\n' % (param, guarded_with[param])
+        if len(guarded_with) > 0:
+            decor.__doc__ += '\n'
         decor.__doc__ += old_documentation
 
         return decor
