@@ -401,6 +401,17 @@ class StringC(Contract):
 class EmailC(Contract):
 
     """
+    >>> EmailC()
+    String with email format
+    >>> EmailC().check('alex.gonzalez@paylogic.eu')
+    >>> EmailC().check(1)
+    Traceback (most recent call last):
+    ...
+    ContractValidationError: value is not email
+    >>> EmailC().check('alex')
+    Traceback (most recent call last):
+    ...
+    ContractValidationError: value is not email
     """
 
     email_re = re.compile(
@@ -413,7 +424,7 @@ class EmailC(Contract):
         pass
 
     def check(self, value):
-        if not value:
+        if not value or type(value) is not str:
             self._failure("value is not email")
         if self.email_re.search(value):
             return
@@ -928,16 +939,32 @@ def guard(contract=None, **kwargs):
 
 
 class NumberC(StringC):
+    """
+    >>> NumberC()
+    Digit
+    >>> NumberC().check(5)
+    >>> NumberC().check('alex')
+    Traceback (most recent call last):
+    ...
+    ContractValidationError: value is not a number
+    """
     def __init__(self):
         super(NumberC, self).__init__(allow_blank=False)
 
     def check(self, value):
-        super(NumberC, self).check(value)
+        try:
+            super(NumberC, self).check(value)
+        except ContractValidationError as e:
+            try:
+                float(value)
+                return
+            except ValueError:
+                return e
         if not value.isdigit():
             self._failure("value is not a number")
 
     def __repr__(self):
-        return 'Digits'
+        return 'Digit'
 
 
 if __name__ == "__main__":
