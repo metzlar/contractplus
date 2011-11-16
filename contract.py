@@ -952,6 +952,8 @@ class NumberC(StringC):
         super(NumberC, self).__init__(allow_blank=False)
 
     def check(self, value):
+        if value == None:
+            self._failure("value is None")
         try:
             super(NumberC, self).check(value)
         except ContractValidationError as e:
@@ -959,7 +961,7 @@ class NumberC(StringC):
                 float(value)
                 return
             except ValueError:
-                return e
+                raise e
         if not value.isdigit():
             self._failure("value is not a number")
 
